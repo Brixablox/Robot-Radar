@@ -4,6 +4,15 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 
 import EpaCard from "../teams/EpaCard";
+import AllianceSummaryCard from "./AllianceSummaryCard";
+import { useMemo } from "react";
+
+interface RecordType {
+  wins?: number;
+  losses?: number;
+  ties?: number;
+  winrate?: number;
+}
 
 interface TeamData {
   teamNumber: number;
@@ -19,12 +28,17 @@ interface TeamData {
     recent?: number;
     max?: number;
   } | null;
-  record?: {
-    wins?: number;
-    losses?: number;
-    ties?: number;
-    winrate?: number;
-  };
+  record?: RecordType;
+  recentRecord?: RecordType;
+}
+
+interface AllianceStatsForPage {
+  avgEPA: number;
+  totalEPA: number;
+  avgWinrate: number;
+  totalYears: number;
+  recentWins: number;
+  numTeams: number;
 }
 
 interface SlotTeam {
@@ -37,10 +51,18 @@ interface SlotTeam {
 
 type SlotTeams = (SlotTeam | null)[];
 
+interface AllianceSummary {
+  red: AllianceStatsForPage;
+  blue: AllianceStatsForPage;
+}
+
 export default function ComparePage() {
   const timeoutsRef = useRef<{ [key: number]: NodeJS.Timeout }>({});
   const [teamInputs, setTeamInputs] = useState<string[]>(["", "", "", "", "", ""]); 
   const [slotTeams, setSlotTeams] = useState<SlotTeams>(Array(6).fill(null));
+  const [allianceSummary, setAllianceSummary] = useState<AllianceSummary | null>(null);
+const [prediction, setPrediction] = useState<{redWinChance: number, blueWinChance: number, redLoseChance: number, blueLoseChance: number} | null>(null);
+
 
 const fetchTeamData = useCallback(async (teamNumber: number): Promise<TeamData | null> => {
     try {
@@ -159,16 +181,98 @@ const loadAllValidTeams = () => {
     clearSlot(index);
   };
 
+  const computeAllianceStats = useCallback((teams: SlotTeams): AllianceSummary | null => {
+    const getTeamsForSide = (start: number, end: number) => 
+      teams.slice(start, end).filter((t): t is SlotTeam => Boolean(t && t.data && !t.loading && !t.error));
+
+    const redTeams = getTeamsForSide(0, 3);
+    const blueTeams = getTeamsForSide(3, 6);
+
+    if (redTeams.length === 0 && blueTeams.length === 0) return null;
+
+    const computeStats = (sideTeams: SlotTeam[]) => {
+      const currentYear = 2026; // Default FRC year or use data.year
+      let totalEPA = 0, totalWinrateWeight = 0, totalGames = 0, totalYears = 0, totalRecentWins = 0;
+      let epaCount = 0;
+
+      sideTeams.forEach(({data}) => {
+        if (data!.epa?.current) {
+          totalEPA += data!.epa.current;
+          epaCount++;
+        }
+        const rec = data!.record;
+        if (rec && typeof rec.winrate === 'number') {
+          const games = (rec.wins || 0) + (rec.losses || 0) + (rec.ties || 0);
+          totalWinrateWeight += rec.winrate * games;
+          totalGames += games;
+        }
+        if (data!.rookie_year) {
+          totalYears += currentYear - data!.rookie_year;
+        }
+        const recentRec = data!.recentRecord;
+        if (recentRec?.wins) {
+          totalRecentWins += recentRec.wins;
+        }
+      });
+
+      return {
+        avgEPA: epaCount > 0 ? totalEPA / epaCount : 0,
+        totalEPA,
+        avgWinrate: totalGames > 0 ? totalWinrateWeight / totalGames : 0,
+        totalYears: Math.round(totalYears),
+        recentWins: totalRecentWins,
+        numTeams: sideTeams.length,
+      };
+    };
+
+    return {
+      red: computeStats(redTeams),
+      blue: computeStats(blueTeams),
+    };
+  }, []);
+
+  useEffect(() => {
+    const summary = computeAllianceStats(slotTeams);
+    setAllianceSummary(summary);
+    if (summary) {
+      setPrediction(null); // Reset prediction on teams change
+    }
+  }, [slotTeams, computeAllianceStats]);
+
   useEffect(() => {
     return () => {
       Object.values(timeoutsRef.current).forEach(clearTimeout);
     };
   }, []);
 
+
   const redTeams = slotTeams.slice(0,3);
   const blueTeams = slotTeams.slice(3,6);
 
   const hasAnyTeams = slotTeams.some(Boolean);
+
+  const handleCalculateWinRate = useCallback(() => {
+    if (!allianceSummary) return;
+
+    const { red, blue } = allianceSummary;
+    const epaDiff = red.avgEPA - blue.avgEPA;
+    const formDiff = (red.avgWinrate - blue.avgWinrate) * 10; // Normalized
+    const rawScore = epaDiff * 1.5 + formDiff;
+    const logit = rawScore / 20; // Scale
+    const redWinChanceRaw = 100 / (1 + Math.exp(-logit));
+    const redWinChance = Math.max(5, Math.min(95, Math.round(redWinChanceRaw)));
+    const blueWinChance = 100 - redWinChance;
+    const redLoseChance = blueWinChance;
+    const blueLoseChance = redWinChance;
+    setPrediction({ redWinChance, blueWinChance, redLoseChance, blueLoseChance });
+  }, [allianceSummary]);
+
+  const handleReset = useCallback(() => {
+    setTeamInputs(["", "", "", "", "", ""]);
+    setSlotTeams(Array(6).fill(null));
+    setAllianceSummary(null);
+    setPrediction(null);
+  }, []);
 
   return (
     <div className="p-6 max-w-7xl mx-auto text-white min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900">
@@ -227,7 +331,7 @@ const loadAllValidTeams = () => {
         </div>
 
         {/* Load Button - spans both */}
-        <div className="col-span-1 lg:col-span-2 flex justify-center pt-4">
+        <div className="col-span-1 lg:col-span-2 flex justify-center pt-4 gap-4">
           <button
             onClick={loadAllValidTeams}
             disabled={teamInputs.every(input => !input.trim())}
@@ -235,6 +339,13 @@ const loadAllValidTeams = () => {
           >
             🚀 Load Selected Teams
             <span className="text-sm font-normal opacity-90">({teamInputs.filter(input => input.trim()).length}/6)</span>
+          </button>
+          <button
+            onClick={handleReset}
+            disabled={!hasAnyTeams}
+            className="px-12 py-4 bg-gradient-to-r from-gray-600 to-slate-700 hover:from-gray-500 hover:to-slate-600 text-xl font-bold text-white rounded-3xl shadow-xl hover:shadow-gray-500/50 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+          >
+            🗑️ Reset All
           </button>
         </div>
       </div>
@@ -264,9 +375,26 @@ const loadAllValidTeams = () => {
                 />
               ))}
             </div>
+{allianceSummary && (
+              <div className="flex justify-center mt-8">
+                <AllianceSummaryCard stats={{...allianceSummary.red, side: 'red' as const}} side="red" />
+              </div>
+            )}
+          </div>
+
+          {/* Calculate Button */}
+          <div className="flex justify-center mb-20">
+            <button
+              onClick={handleCalculateWinRate}
+              disabled={!allianceSummary || redTeams.filter(Boolean).length < 1 || blueTeams.filter(Boolean).length < 1}
+              className="px-16 py-6 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-2xl font-black text-white rounded-3xl shadow-2xl hover:shadow-emerald-500/50 hover:-translate-y-2 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-green-500/25 disabled:shadow-none flex items-center gap-3 text-shadow-lg"
+            >
+              🎯 Calculate Win Rate
+            </button>
           </div>
 
           {/* Blue Alliance Layered Row */}
+
           <div>
             <h3 className="text-3xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent text-center">
               Blue Alliance Matchup
@@ -283,7 +411,36 @@ const loadAllValidTeams = () => {
                 />
               ))}
             </div>
+{allianceSummary && (
+              <div className="flex justify-center mt-8">
+                <AllianceSummaryCard stats={{...allianceSummary.blue, side: 'blue' as const}} side="blue" />
+              </div>
+            )}
           </div>
+
+{prediction && (
+            <div className="text-center mb-12 p-8 bg-gradient-to-r from-emerald-900/80 via-slate-900/80 to-purple-900/80 border-2 border-emerald-400/50 rounded-3xl backdrop-blur-xl shadow-2xl max-w-3xl mx-auto">
+              <h3 className="text-3xl font-black mb-8 bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 bg-clip-text text-transparent drop-shadow-lg">🎯 Match Prediction</h3>
+              <div className="grid grid-cols-2 gap-8 mb-6">
+                <div className="text-center">
+                  <div className="text-6xl font-black bg-gradient-to-br from-red-400 to-orange-400 bg-clip-text text-transparent drop-shadow-2xl mb-2">Red Alliance</div>
+                  <div className="text-5xl font-black text-emerald-400 mb-2">{prediction.redWinChance}%</div>
+                  <div className="text-3xl font-bold text-red-400/80 -mb-1">Win Chance</div>
+                  <div className="text-xl font-bold text-red-300/70">{prediction.redLoseChance}% Lose Chance</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-6xl font-black bg-gradient-to-br from-blue-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl mb-2">Blue Alliance</div>
+                  <div className="text-5xl font-black text-emerald-400 mb-2">{prediction.blueWinChance}%</div>
+                  <div className="text-3xl font-bold text-blue-400/80 -mb-1">Win Chance</div>
+                  <div className="text-xl font-bold text-red-300/70">{prediction.blueLoseChance}% Lose Chance</div>
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-emerald-300/80 flex items-center justify-center gap-2">
+                Win Chances Sum: {prediction.redWinChance + prediction.blueWinChance}% 
+                <span className="text-emerald-400 font-black text-3xl">✓</span>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -294,10 +451,11 @@ interface TeamCardProps {
   team: SlotTeam | null;
   index: number;
   onRemove: () => void;
+  loadTeamForSlot: (index: number, teamNumber: number) => void;
   zBase: number;
 }
 
-function TeamCard({ team, index, onRemove, zBase }: TeamCardProps & { loadTeamForSlot?: (index: number, teamNumber: number) => void }) {
+function TeamCard({ team, index, onRemove, loadTeamForSlot, zBase }: TeamCardProps) {
   if (!team) return null;
 
   const { side } = team;
@@ -383,22 +541,8 @@ function TeamCard({ team, index, onRemove, zBase }: TeamCardProps & { loadTeamFo
         <EpaCard teamNumber={team.teamNumber} />
       </div>
 
-      {record && (
-        <div className="grid grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-white/20 backdrop-blur-sm mb-4">
-          <div className="text-center">
-            <div className={`text-xl font-black bg-gradient-to-br from-${colorPrefix === 'red' ? 'red-400 to-orange-400' : 'blue-400 to-cyan-400'} bg-clip-text text-transparent`}>
-              {record.winrate!.toFixed(0)}%
-            </div>
-            <div className="text-xs uppercase tracking-wide text-gray-400 font-bold mt-1">Win Rate</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-white">
-              {record.wins}-{record.losses}-{record.ties ?? 0}
-            </div>
-            <div className="text-xs uppercase tracking-wide text-gray-400 font-bold mt-1">Record</div>
-          </div>
-        </div>
-      )}
+{/* Individual stats removed - alliance only */}
+
 
       <div className="text-center pt-2 border-t border-white/20 text-xs text-gray-500">
         {data.location ? `${data.location.city ?? ''}, ${data.location.state ?? ''}` : 'Location unknown'}

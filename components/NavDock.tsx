@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Dock, { DockItem } from "./Dock";
-import { Home, Crosshair as ScoutIcon, Zap as AutoIcon, Users, BarChart3 as CompareIcon, User, LogOut, LogIn, UserPlus } from "lucide-react";
+import { Home, Binoculars as ScoutIcon, Zap as AutoIcon, Users, BarChart3 as CompareIcon, List, User, LogOut, LogIn, UserPlus } from "lucide-react";
 
 function parseSessionToken(): any {
   if (typeof document === 'undefined') return null;
@@ -46,7 +46,7 @@ export default function NavDock() {
   const links = [
     { href: "/", label: "Home", icon: <Home /> },
     { href: "/scout", label: "Scout", icon: <ScoutIcon /> },
-    { href: "/auto", label: "Auto", icon: <AutoIcon /> },
+{ href: "/matches", label: "Matches", icon: <List /> },
     { href: "/teams", label: "Teams", icon: <Users /> },
     { href: "/compare", label: "Compare", icon: <CompareIcon /> },
   ];

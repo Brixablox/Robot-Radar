@@ -44,11 +44,20 @@ export default function Login() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await res.json();
-
+      let data;
       if (!res.ok) {
-        throw new Error(data.error || 'Login failed');
+        const contentType = res.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          data = await res.json();
+          throw new Error(data?.error || `HTTP ${res.status}`);
+        } else {
+          const text = await res.text();
+          console.error('Login API returned non-JSON:', res.status, text.slice(0, 200));
+          throw new Error(`Server error (${res.status}) - check console. Likely missing DATABASE_URL`);
+        }
       }
+
+      data = await res.json();
 
       router.push('/profile');
       router.refresh();

@@ -40,9 +40,8 @@ function TeamCard({ team }: { team: TbaTeamSimple }) {
           {team.nickname || team.name || 'Unnamed Team'}
         </div>
 
-        <EpaCard teamNumber={team.team_number} />
-
         {team.school_name && (
+
           <div style={{ marginTop: '8px', color: '#cbd5e1', fontSize: '0.95rem' }}>
             {team.school_name}
           </div>

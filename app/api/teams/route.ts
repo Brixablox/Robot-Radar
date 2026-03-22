@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTbaTeamsPage, getStatboticsTeam } from "@/app/lib/frc";
+import { getTbaTeamsPage } from "@/app/lib/frc";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,15 +10,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid page" }, { status: 400 });
     }
 
-    let teams = await getTbaTeamsPage(page);
-
-    // Fetch EPA data in parallel
-    await Promise.all(
-      teams.map(async (team) => {
-        const epaData = await getStatboticsTeam(team.team_number);
-        team.epa = epaData?.norm_epa ?? null;
-      })
-    );
+    const teams = await getTbaTeamsPage(page);
 
     return NextResponse.json({
       teams,

@@ -32,12 +32,14 @@ export default function TeamsClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [searchResult, setSearchResult] = useState<SearchResult>({ teams: [], count: 0, loading: false });
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   async function loadMore() {
     if (loadingMore || !hasMore) return;
 
     setLoadingMore(true);
+    setError(null);
 
     try {
       const nextPage = page + 1;
@@ -56,7 +58,9 @@ export default function TeamsClient({
       setPage(nextPage);
       setHasMore(newTeams.length > 0);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load more teams";
       console.error("Load more error:", err);
+      setError(msg);
     } finally {
       setLoadingMore(false);
     }
@@ -96,6 +100,7 @@ export default function TeamsClient({
   const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newQuery = e.target.value;
     setQuery(newQuery);
+    setError(null);
     
     startTransition(() => {
       performSearch(newQuery);
@@ -137,6 +142,17 @@ export default function TeamsClient({
         }}
       />
 
+      {error && (
+        <div style={{ marginTop: "18px", color: "#fca5a5", padding: "12px", background: "rgba(252, 165, 165, 0.1)", borderRadius: "8px", borderLeft: "4px solid #ef4444" }}>
+          Error: {error}
+          <button 
+            onClick={() => setError(null)} 
+            style={{ marginLeft: "12px", background: "none", border: "none", color: "#fca5a5", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div style={{ marginTop: "18px", color: "#cbd5e1", fontWeight: 700 }}>
         {statusText}
       </div>

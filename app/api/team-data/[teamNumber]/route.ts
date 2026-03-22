@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTbaTeam, getStatboticsTeam, getDefaultYear } from '@/app/lib/frc';
+import { getTbaTeam, getStatboticsTeam, getStatboticsTeamYear, getDefaultYear } from '@/app/lib/frc';
 
 export async function GET(
   request: NextRequest,
@@ -34,6 +34,9 @@ export async function GET(
       }, { status: 404 });
     }
 
+    // Get year-specific data for recent record
+    const sbYear = await getStatboticsTeamYear(teamNumber, year).catch(() => null);
+
     const data = {
       teamNumber,
       year,
@@ -46,7 +49,9 @@ export async function GET(
       rookie_year: tbaTeam?.rookie_year || sbTeam?.rookie_year,
       epa: sbTeam?.norm_epa || null,
       record: sbTeam?.record || null,
+      recentRecord: sbYear?.record || sbTeam?.record || null,
     };
+
 
     return NextResponse.json(data);
   } catch (error) {

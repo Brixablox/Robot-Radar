@@ -1,8 +1,10 @@
-# Compare Page Implementation Plan
+## Prediction Enhancement TODO
 
-## ✅ 1. Create API route: app/api/team-data/[teamNumber]/route.ts\n## ✅ 2. Update page.tsx: Add team input/search\n## ✅ 3. Fetch & display real data in page.tsx (EPA, record, name, winrate, etc.)\n## [ ] 4. Style & animations\n## [ ] 5. Test & fix TS errors\n## [ ] 6. Complete
-## [ ] 3. Fetch & display real data in page.tsx
-## [ ] 4. Style & animations
-## [ ] 5. Test & fix TS errors
-## [ ] 6. Complete
-
+✅ [x] Create TODO.md with implementation steps
+✅ Create TODO.md with implementation steps
+✅ Update prediction state type to include redWinChance, blueWinChance, redLoseChance, blueLoseChance
+✅ Modify handleCalculateWinRate() to compute all four values (win + lose = 100%)
+✅ Update prediction UI display to show all four probabilities with proper styling
+✅ [x] Fix TypeScript errors in TeamCard component and AllianceSummaryCard calls
+✅ [x] Test changes: load teams, calculate prediction, verify values sum correctly (redWin + blueWin = 100, loses inverse)
+✅ [x] attempt_completion

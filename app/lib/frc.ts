@@ -32,6 +32,52 @@ export type TbaEventSimple = {
   country?: string | null;
 };
 
+export type TbaEvent = TbaEventSimple & {
+  year: string;
+  event_code: string;
+  event_type_string: string;
+  short_name: string;
+  start_date: string;
+  end_date: string;
+  official: boolean;
+};
+
+export type TbaMatchSimple = {
+  key: string;
+  comp_level: string;
+  match_number: number;
+  set_number: number;
+  alliances: {
+    red: {
+      team_keys: string[];
+      score: number;
+    };
+    blue: {
+      team_keys: string[];
+      score: number;
+    };
+  };
+  winning_alliance: string;
+  time_string: string;
+  predicted_time: number;
+};
+
+export type TbaEventStatus = {
+  qual?: {
+    ranking?: {
+      rank?: number | null;
+    } | null;
+  } | null;
+  playoffs?: {
+    status: string;
+  } | null;
+  overall_status_str?: string | null;
+  next_match?: {
+    key: string;
+    time_string: string;
+  } | null;
+};
+
 export type TbaAward = {
   name: string;
   event_key?: string | null;
@@ -42,15 +88,6 @@ export type TbaMedia = {
   foreign_key: string;
   direct_url?: string | null;
   view_url?: string | null;
-};
-
-export type TbaEventStatus = {
-  qual?: {
-    ranking?: {
-      rank?: number | null;
-    } | null;
-  } | null;
-  overall_status_str?: string | null;
 };
 
 export type StatboticsTeam = {
@@ -251,6 +288,62 @@ export async function searchTeams(query: string): Promise<TbaTeamSimple[]> {
     .slice(0, 100);
 }
 
+export async function getTbaEvents(
+  year: number = getDefaultYear()
+): Promise<TbaEvent[]> {
+  return fetchJson<TbaEvent[]>(
+    `${TBA_BASE}/events/${year}`,
+    {
+      headers: getTbaHeaders(),
+      next: { revalidate: 3600 },
+    }
+  );
+}
+
+export async function searchEvents(
+  query: string,
+  year: number = getDefaultYear()
+): Promise<TbaEvent[]> {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return [];
+
+  const events = await getTbaEvents(year);
+  return events.filter(event => 
+    [event.name, event.short_name, event.key, event.event_code]
+      .join(' ')
+      .toLowerCase()
+      .includes(trimmed)
+  ).slice(0, 50);
+}
+
+export async function getTbaEventMatches(
+  eventKey: string
+): Promise<TbaMatchSimple[]> {
+  return fetchJson<TbaMatchSimple[]>(
+    `${TBA_BASE}/event/${eventKey}/matches/simple`,
+    {
+      headers: getTbaHeaders(),
+      next: { revalidate: 60 },
+    }
+  );
+}
+
+export async function getEventCurrentStatus(
+  eventKey: string
+): Promise<TbaEventStatus | null> {
+  try {
+    const response = await fetch(`${TBA_BASE}/event/${eventKey}/status`, {
+      headers: getTbaHeaders(),
+      next: { revalidate: 30 },
+    });
+    if (!response.ok) return null;
+    return response.json() as Promise<TbaEventStatus>;
+  } catch {
+    return null;
+  }
+}
+
 export function mediaToImageUrl(media: TbaMedia): string | null {
   return media.direct_url || media.view_url || null;
 }
+
