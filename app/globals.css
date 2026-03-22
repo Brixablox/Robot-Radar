@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.dock-outer {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  max-width: 90vw;
+  align-items: center;
+  z-index: 999;
+  pointer-events: none;
+
+}
+
+.dock-panel {
+  position: relative;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  height: 70px;
+  width: fit-content;
+  min-width: 450px;
+  gap: 1.5rem;
+  pointer-events: auto;
+  z-index: 1000;
+}
+
+.dock-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background-color: #0B1020;
+  border: 1px solid #081626;
+  box-shadow:
+    0 8px 32px -4px rgba(0, 0, 0, 0.5),
+    0 4px 12px -2px rgba(34, 211, 238, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.dock-item:hover {
+  box-shadow:
+    0 12px 40px -6px rgba(0, 0, 0, 0.6),
+    0 8px 20px -4px rgba(34, 211, 238, 0.25);
+}
+
+.dock-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e2e8f0;
+  padding: 8px;
+}
+
+.dock-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.dock-label {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  width: max-content;
+  white-space: nowrap;
+  border-radius: 0.25rem 0.25rem 0.5rem 0.5rem;
+  border: 1px solid #22d3ee20;
+  background-color: #081626;
+  backdrop-filter: blur(16px);
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  color: #67e8f9;
+  font-weight: 600;
+  transform: translateX(-50%);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+}
